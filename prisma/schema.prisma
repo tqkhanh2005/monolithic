@@ -1,0 +1,91 @@
+generator client {
+  provider = "prisma-client-js"
+  engineType = "client"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Based on p2/E-commerce-database-diagram.png + p3/ERD.jpg (conflict C2: both
+// Order.createdAt and Order.discount are kept). email/phone come from
+// API-AUTH-01 in API_Specification_Ecommerce_MVP.xlsx.
+
+model Role {
+  roleid   Int    @id @default(autoincrement())
+  rolename String @unique @db.VarChar(50)
+  users    User[]
+}
+
+model MemberShip {
+  mid   Int    @id @default(autoincrement())
+  mname String @unique @db.VarChar(50)
+  score Int    @default(0)
+  users User[]
+}
+
+model User {
+  uid      Int    @id @default(autoincrement())
+  username String @unique @db.VarChar(50)
+  fullname String? @db.VarChar(100)
+  password String @db.VarChar(255)
+  email    String? @unique @db.VarChar(255)
+  phone    String? @db.VarChar(30)
+  roleid   Int
+  mid      Int
+  role     Role       @relation(fields: [roleid], references: [roleid])
+  member   MemberShip @relation(fields: [mid], references: [mid])
+  orders   Order[]
+
+  @@index([roleid])
+  @@index([mid])
+}
+
+model Product {
+  pid      Int    @id @default(autoincrement())
+  pname    String @db.VarChar(100)
+  price    Decimal @db.Decimal(10, 2)
+  quantity Int
+  details  OrderDetail[]
+}
+
+model Order {
+  oid       Int      @id @default(autoincrement())
+  uid       Int
+  discount  Decimal  @default(0) @db.Decimal(10, 2)
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [uid], references: [uid])
+  details   OrderDetail[]
+  shipments Shipment[]
+
+  @@index([uid])
+}
+
+model OrderDetail {
+  oid        Int
+  pid        Int
+  qty        Int
+  unit_price Decimal @db.Decimal(10, 2)
+  order      Order   @relation(fields: [oid], references: [oid], onDelete: Cascade)
+  product    Product @relation(fields: [pid], references: [pid])
+
+  @@id([oid, pid])
+  @@index([pid])
+}
+
+enum ShipmentStatus {
+  PENDING
+  SHIPPING
+  DELIVERED
+  CANCELLED
+}
+
+model Shipment {
+  shipid Int            @id @default(autoincrement())
+  oid    Int
+  status ShipmentStatus @default(PENDING)
+  order  Order          @relation(fields: [oid], references: [oid])
+
+  @@index([oid])
+}
