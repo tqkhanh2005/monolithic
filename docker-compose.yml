@@ -9,9 +9,9 @@ services:
       POSTGRES_DB: ${POSTGRES_DB:?set in .env}
     volumes:
       - pgdata:/var/lib/postgresql/data
-    networks: [ecommerce-net]
+    networks: [ ecommerce-net ]
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      test: [ "CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}" ]
       interval: 5s
       timeout: 5s
       retries: 10
@@ -25,11 +25,11 @@ services:
       JWT_SECRET: ${JWT_SECRET:?set in .env}
       JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-3600}
       PORT: 3000
-    ports: ["3000:3000"]
+    ports: [ "3000:3000" ]
     depends_on:
       postgres:
         condition: service_healthy
-    networks: [ecommerce-net]
+    networks: [ ecommerce-net ]
 
 networks:
   ecommerce-net:
