@@ -8,7 +8,9 @@
     "dev": "node --watch src/server.js",
     "migrate": "prisma migrate deploy",
     "seed": "node prisma/seed.js",
-    "test": "cross-env NODE_ENV=test jest --runInBand",
+    "test": "cross-env NODE_ENV=test jest --runInBand --testPathIgnorePatterns=integration",
+    "test:integration": "node scripts/prepare-test-db.js && cross-env NODE_ENV=test jest --runInBand --testPathPattern=integration",
+    "demo": "node scripts/demo.js",
     "lint": "eslint src"
   },
   "prisma": {

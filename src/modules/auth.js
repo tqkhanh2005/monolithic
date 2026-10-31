@@ -11,7 +11,7 @@ const router = express.Router();
 // Mass-assignment protection: only these fields are read; role/mid can never be set by the client.
 const registerSchema = z.object({
   username: z.string().trim().min(3).max(50),
-  password: z.string().min(6).max(72),
+  password: z.string().min(6).refine(v => Buffer.byteLength(v, 'utf8') <= 72, 'Password must not exceed 72 UTF-8 bytes'),
   email: z.string().trim().email().max(255).optional(),
   phone: z.string().trim().max(30).optional(),
   fullname: z.string().trim().max(100).optional(),
@@ -21,8 +21,8 @@ const loginSchema = z.object({ username: z.string().min(1), password: z.string()
 router.post('/register', wrap(async (req, res) => {
   const body = registerSchema.parse(req.body);
   const [role, member] = await Promise.all([
-    prisma.role.findUnique({ where: { rolename: 'CUSTOMER' } }),
-    prisma.memberShip.findFirst({ orderBy: { score: 'asc' } }),
+    prisma.role.findUnique({ where: { rolename: 'normal' } }),
+    prisma.memberShip.findUnique({ where: { mname: 'Standard' } }),
   ]);
   if (!role || !member) throw new HttpError(500, 'System not seeded');
 

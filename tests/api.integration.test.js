@@ -16,11 +16,12 @@ async function login(username, password) {
 const bearer = (t) => ({ Authorization: `Bearer ${t}` });
 
 beforeAll(async () => {
+  if (!/^ecommerce_test(?:_[a-z0-9]+)?$/.test(new URL(process.env.DATABASE_URL).pathname.slice(1))) throw new Error('Use a separate ecommerce_test database');
   const seed = require('child_process');
   seed.execSync('node prisma/seed.js', { env: process.env, stdio: 'ignore' });
-  admin = await login('admin', 'Admin@123');
-  cust = await login('customer1', 'Customer@123');
-  shipper = await login('shipper1', 'Shipper@123');
+  admin = await login('admin', process.env.SEED_ADMIN_PASSWORD || 'Admin@123');
+  cust = await login('customer1', process.env.SEED_CUSTOMER_PASSWORD || 'Customer@123');
+  shipper = await login('shipper1', process.env.SEED_SHIPPER_PASSWORD || 'Shipper@123');
   pid1 = (await request(app).post('/api/products').set(bearer(admin)).send({ pname: `IT-A-${suffix}`, price: 100, quantity: 5 })).body.pid;
   pid2 = (await request(app).post('/api/products').set(bearer(admin)).send({ pname: `IT-B-${suffix}`, price: 20.5, quantity: 3 })).body.pid;
 });
@@ -39,9 +40,11 @@ describe('auth (TC-IAM-01..05)', () => {
   it('registers -> 201 and stores a bcrypt hash', async () => {
     const r = await request(app).post('/api/auth/register').send({ username: u, password: 'P@ss123', email: `${u}@x.com` });
     expect(r.status).toBe(201);
-    const row = await prisma.user.findUnique({ where: { username: u } });
+    const row = await prisma.user.findUnique({ where: { username: u }, include: { role: true, member: true } });
     expect(row.password).not.toBe('P@ss123');
     expect(await bcrypt.compare('P@ss123', row.password)).toBe(true);
+    expect(row.role.rolename).toBe('normal');
+    expect(row.member.score).toBe(10);
   });
   it('duplicate username -> 409', async () => {
     expect((await request(app).post('/api/auth/register').send({ username: u, password: 'P@ss123' })).status).toBe(409);
@@ -53,7 +56,7 @@ describe('auth (TC-IAM-01..05)', () => {
     const r = await request(app).post('/api/auth/login').send({ username: u, password: 'P@ss123' });
     expect(r.status).toBe(200);
     const p = jwt.decode(r.body.accessToken);
-    expect(p.role).toBe('CUSTOMER');
+    expect(p.role).toBe('normal');
     expect(p.sub).toBeDefined();
   });
   it('wrong password -> 401', async () => {
@@ -63,7 +66,7 @@ describe('auth (TC-IAM-01..05)', () => {
     const name = `ma_${suffix}`;
     await request(app).post('/api/auth/register').send({ username: name, password: 'P@ss123', roleid: 1, role: 'ADMIN', mid: 4 });
     const row = await prisma.user.findUnique({ where: { username: name }, include: { role: true } });
-    expect(row.role.rolename).toBe('CUSTOMER');
+    expect(row.role.rolename).toBe('normal');
     expect(row.mid).not.toBe(4);
   });
 });

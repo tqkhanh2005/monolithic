@@ -17,7 +17,7 @@ const statusSchema = z.object({ status: z.enum(['PENDING', 'SHIPPING', 'DELIVERE
 router.get('/:shipid', wrap(async (req, res) => {
   const s = await prisma.shipment.findUnique({ where: { shipid: parseId(req.params.shipid) }, include: { order: true } });
   if (!s) throw new HttpError(404, 'Shipment not found');
-  if (req.user.role === 'CUSTOMER' && s.order.uid !== req.user.uid) throw new HttpError(403, 'Forbidden');
+  if (!['ADMIN', 'SHIPMENT_STAFF'].includes(req.user.role) && s.order.uid !== req.user.uid) throw new HttpError(403, 'Forbidden');
   res.json({ shipid: s.shipid, oid: s.oid, status: s.status });
 }));
 

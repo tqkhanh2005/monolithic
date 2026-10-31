@@ -15,10 +15,10 @@ const parsePid = (v) => {
 };
 const createSchema = z.object({
   pname: z.string().trim().min(1).max(100),
-  price: z.number().nonnegative().max(99999999),
-  quantity: z.number().int().nonnegative(),
+  price: z.number().finite().nonnegative().max(99999999.99).refine(n => Math.abs(n * 100 - Math.round(n * 100)) < 0.00001, 'Price supports two decimal places'),
+  quantity: z.number().int().nonnegative().max(2147483647),
 }).strict();
-const updateSchema = createSchema.partial().strict();
+const updateSchema = createSchema.partial().strict().refine(v => Object.keys(v).length > 0, 'Update must not be empty');
 
 router.get('/', wrap(async (req, res) => {
   const items = await prisma.product.findMany({ orderBy: { pid: 'asc' } });

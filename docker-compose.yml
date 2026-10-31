@@ -1,3 +1,4 @@
+name: ecommerce-monolithic
 services:
   postgres:
     image: postgres:16-alpine
@@ -24,12 +25,34 @@ services:
       DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}?schema=public
       JWT_SECRET: ${JWT_SECRET:?set in .env}
       JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-3600}
+      BCRYPT_ROUNDS: ${BCRYPT_ROUNDS:-10}
+      SEED_ADMIN_PASSWORD: ${SEED_ADMIN_PASSWORD:-Admin@123}
+      SEED_CUSTOMER_PASSWORD: ${SEED_CUSTOMER_PASSWORD:-Customer@123}
+      SEED_SHIPPER_PASSWORD: ${SEED_SHIPPER_PASSWORD:-Shipper@123}
       PORT: 3000
-    ports: [ "3000:3000" ]
+    ports: [ "127.0.0.1:${HOST_PORT:-3002}:3000" ]
     depends_on:
       postgres:
         condition: service_healthy
     networks: [ ecommerce-net ]
+
+  tests:
+    profiles: [test]
+    build:
+      context: .
+      target: test
+    environment:
+      NODE_ENV: test
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/ecommerce_test?schema=public
+      JWT_SECRET: ${JWT_SECRET}
+      BCRYPT_ROUNDS: 4
+      SEED_ADMIN_PASSWORD: ${SEED_ADMIN_PASSWORD:-Admin@123}
+      SEED_CUSTOMER_PASSWORD: ${SEED_CUSTOMER_PASSWORD:-Customer@123}
+      SEED_SHIPPER_PASSWORD: ${SEED_SHIPPER_PASSWORD:-Shipper@123}
+    networks: [ ecommerce-net ]
+    depends_on:
+      app:
+        condition: service_healthy
 
 networks:
   ecommerce-net:

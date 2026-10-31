@@ -10,6 +10,13 @@ function createApp() {
   app.disable('x-powered-by');
   app.use(helmet());
   app.use(cors());
+  app.use((req, res, next) => {
+    const started = Date.now();
+    res.on('finish', () => {
+      if (process.env.NODE_ENV !== 'test') console.log(JSON.stringify({ method: req.method, path: req.path, status: res.statusCode, durationMs: Date.now() - started })); // eslint-disable-line no-console
+    });
+    next();
+  });
   app.use(express.json({ limit: '100kb' }));
   if (process.env.NODE_ENV !== 'test') app.use(rateLimit({ windowMs: 60000, limit: 300 }));
 

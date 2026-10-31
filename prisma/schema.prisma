@@ -21,7 +21,7 @@ model Role {
 model MemberShip {
   mid   Int    @id @default(autoincrement())
   mname String @unique @db.VarChar(50)
-  score Int    @default(0)
+  score Int    @default(10)
   users User[]
 }
 

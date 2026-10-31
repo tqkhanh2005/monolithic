@@ -35,7 +35,7 @@ router.post('/', wrap(async (req, res) => {
     const percent = discountPercentForScore(user.member.score);
 
     // Atomic conditional decrement: cannot oversell even under concurrent orders.
-    for (const [pid, qty] of merged) {
+    for (const [pid, qty] of [...merged].sort((a, b) => a[0] - b[0])) {
       const r = await tx.product.updateMany({ where: { pid, quantity: { gte: qty } }, data: { quantity: { decrement: qty } } });
       if (r.count === 0) {
         const exists = await tx.product.findUnique({ where: { pid } });

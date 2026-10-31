@@ -20,9 +20,9 @@ const parseUid = (v) => {
 router.get('/:uid', wrap(async (req, res) => {
   const uid = parseUid(req.params.uid);
   assertAccess(req, uid);
-  const u = await prisma.user.findUnique({ where: { uid }, include: { member: true } });
+  const u = await prisma.user.findUnique({ where: { uid }, include: { member: true, role: true } });
   if (!u) throw new HttpError(404, 'Customer not found');
-  res.json({ uid: u.uid, fullname: u.fullname, mid: u.mid, membership: { mname: u.member.mname, score: u.member.score } });
+  res.json({ uid: u.uid, fullname: u.fullname, role: u.role.rolename, mid: u.mid, membership: { mname: u.member.mname, score: u.member.score } });
 }));
 
 const updateSchema = z.object({ fullname: z.string().trim().min(1).max(100).optional(), mid: z.number().int().positive().optional() }).strict();

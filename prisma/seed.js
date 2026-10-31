@@ -5,10 +5,10 @@ const prisma = require('../src/config/prisma');
 
 async function main() {
   const roles = {};
-  for (const rolename of ['ADMIN', 'CUSTOMER', 'SHIPMENT_STAFF']) {
+  for (const rolename of ['ADMIN', 'normal', 'SHIPMENT_STAFF']) {
     roles[rolename] = await prisma.role.upsert({ where: { rolename }, update: {}, create: { rolename } });
   }
-  const tiers = [['Standard', 0], ['Silver', 100], ['Gold', 500], ['Platinum', 1000]];
+  const tiers = [['Standard', 10], ['Silver', 100], ['Gold', 500], ['Platinum', 1000]];
   const members = {};
   for (const [mname, score] of tiers) {
     members[mname] = await prisma.memberShip.upsert({ where: { mname }, update: { score }, create: { mname, score } });
@@ -16,13 +16,13 @@ async function main() {
   const rounds = Number(process.env.BCRYPT_ROUNDS || 10);
   const users = [
     ['admin', 'ADMIN', 'Standard', process.env.SEED_ADMIN_PASSWORD || 'Admin@123'],
-    ['customer1', 'CUSTOMER', 'Silver', process.env.SEED_CUSTOMER_PASSWORD || 'Customer@123'],
+    ['customer1', 'normal', 'Silver', process.env.SEED_CUSTOMER_PASSWORD || 'Customer@123'],
     ['shipper1', 'SHIPMENT_STAFF', 'Standard', process.env.SEED_SHIPPER_PASSWORD || 'Shipper@123'],
   ];
   for (const [username, role, tier, pw] of users) {
     await prisma.user.upsert({
       where: { username },
-      update: {},
+      update: { roleid: roles[role].roleid },
       create: { username, fullname: username, email: `${username}@example.com`, password: await bcrypt.hash(pw, rounds), roleid: roles[role].roleid, mid: members[tier].mid },
     });
   }
@@ -35,4 +35,4 @@ async function main() {
   }
   console.log('Seed complete');
 }
-main().finally(() => prisma.$disconnect());
+main().catch(e => { console.error(e.message); process.exitCode = 1; }).finally(() => prisma.$disconnect());

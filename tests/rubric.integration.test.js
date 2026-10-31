@@ -1,0 +1,38 @@
+const request = require('supertest');
+const { randomUUID } = require('node:crypto');
+const prisma = require('../src/config/prisma');
+const { createApp } = require('../src/app');
+const app = createApp();
+const bearer = t => ({ Authorization: 'Bearer ' + t });
+afterAll(() => prisma.$disconnect());
+test('P2 rubric: SQL-created X/Y, register normal score 10, JWT, X2/Y5, details, shipment and database', async () => {
+  const name = 'rubric_' + randomUUID().replaceAll('-', '').slice(0, 16);
+  // Prisma raw SQL mirrors the CLI INSERT commands in docs/DEMO.md.
+  const [x] = await prisma.$queryRaw`INSERT INTO "Product" (pname,price,quantity) VALUES ('Product X',100,10) RETURNING pid`;
+  const [y] = await prisma.$queryRaw`INSERT INTO "Product" (pname,price,quantity) VALUES ('Product Y',200,20) RETURNING pid`;
+  const register = await request(app).post('/api/auth/register').send({ username: name, password: 'P@ss12345' });
+  expect(register.status).toBe(201);
+  const row = await prisma.user.findUnique({ where: { uid: register.body.uid }, include: { role: true, member: true } });
+  expect(row.role.rolename).toBe('normal'); expect(row.member.score).toBe(10);
+  const login = await request(app).post('/api/auth/login').send({ username: name, password: 'P@ss12345' });
+  expect(login.status).toBe(200); const token = login.body.accessToken; expect(token).toBeTruthy();
+  const items = [{ pid: x.pid, qty: 2 }, { pid: y.pid, qty: 5 }];
+  expect((await request(app).post('/api/orders').send({ items })).status).toBe(401);
+  const r = await request(app).post('/api/orders').set(bearer(token)).send({ items });
+  expect(r.status).toBe(201); expect(r.body.total_amount).toBe(1200); expect(r.body.shipment.status).toBe('PENDING');
+  expect(Math.abs(Date.now() - Date.parse(r.body.createdAt))).toBeLessThan(30000);
+  const order = await prisma.order.findUnique({ where: { oid: r.body.oid }, include: { details: { orderBy: { pid: 'asc' } }, shipments: true } });
+  expect(order.details.map(d => [d.pid, d.qty])).toEqual([[x.pid, 2], [y.pid, 5]]);
+  expect((await prisma.product.findUnique({ where: { pid: x.pid } })).quantity).toBe(8);
+  expect((await prisma.product.findUnique({ where: { pid: y.pid } })).quantity).toBe(15);
+  const shipid = order.shipments[0].shipid;
+  expect((await request(app).get(`/api/orders/${order.oid}`).set(bearer(token))).status).toBe(200);
+  const staff = await request(app).post('/api/auth/login').send({ username: 'shipper1', password: process.env.SEED_SHIPPER_PASSWORD || 'Shipper@123' });
+  expect((await request(app).patch(`/api/shipments/${shipid}/status`).set(bearer(token)).send({ status: 'SHIPPING' })).status).toBe(403);
+  expect((await request(app).patch(`/api/shipments/${shipid}/status`).set(bearer(staff.body.accessToken)).send({ status: 'SHIPPING' })).status).toBe(200);
+  expect((await prisma.shipment.findUnique({ where: { shipid } })).status).toBe('SHIPPING');
+  const outsider = name + '_b';
+  await request(app).post('/api/auth/register').send({ username: outsider, password: 'P@ss12345' });
+  const other = await request(app).post('/api/auth/login').send({ username: outsider, password: 'P@ss12345' });
+  expect((await request(app).get(`/api/shipments/${shipid}`).set(bearer(other.body.accessToken))).status).toBe(403);
+});
